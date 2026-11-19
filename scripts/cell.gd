@@ -167,12 +167,12 @@ func _build_furniture() -> void:
 	tm.albedo_texture = Tex.tally()
 	tm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	tm.roughness = 1.0
-	Bld.quad(self, Vector3(0.9, 0.45, 1.0), Vector3(-1.0, 1.15, 1.99), tm, Vector3(0, 180, 0), "tally")
+	Bld.quad(self, Vector2(0.9, 0.45), Vector3(-1.0, 1.15, 1.99), tm, Vector3(0, 180, 0), "tally")
 	Bld.hit(self, "tally", Vector3(0.9, 0.5, 0.1), Vector3(-1.0, 1.15, 1.95))
 
 	# --- fenêtre grillagée (mur ouest) ---
 	window_mat = Bld.emissive(Color(0.5, 0.6, 0.9), 1.5)
-	Bld.quad(self, Vector3(0.9, 0.5, 1.0), Vector3(-1.985, 2.05, -0.6), window_mat, Vector3(0, 90, 0), "window_glass")
+	Bld.quad(self, Vector2(0.9, 0.5), Vector3(-1.985, 2.05, -0.6), window_mat, Vector3(0, 90, 0), "window_glass")
 	var wbar_m: StandardMaterial3D = Bld.mat(null, Color(0.1, 0.1, 0.12), 0.5, 0.6)
 	for i in 5:
 		Bld.cyl(self, 0.015, 0.52, Vector3(-1.95, 2.05, -0.6 - 0.36 + 0.18 * float(i)), wbar_m)
