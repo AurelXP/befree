@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="16" fill="#14161c"/>
+  <g stroke="#8a8f99" stroke-width="6" stroke-linecap="round">
+    <line x1="34" y1="18" x2="34" y2="110"/>
+    <line x1="56" y1="18" x2="56" y2="110"/>
+    <line x1="78" y1="18" x2="78" y2="110"/>
+    <line x1="100" y1="18" x2="100" y2="110"/>
+  </g>
+  <path d="M10 64 L118 64" stroke="#e8b04a" stroke-width="8" stroke-linecap="round" stroke-dasharray="2 14"/>
+  <text x="64" y="118" font-family="sans-serif" font-size="14" font-weight="bold" fill="#e8b04a" text-anchor="middle">BEFREE</text>
+</svg>
