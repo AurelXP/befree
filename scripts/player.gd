@@ -94,6 +94,8 @@ func shake(strength: float, duration: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if cinematic:
+		return
 	_bob += delta
 	var p: Vector3 = _pos
 	var yaw: float = _yaw + _yaw_off

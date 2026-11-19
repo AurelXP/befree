@@ -51,6 +51,10 @@ var poster_moved: bool = false
 var digging: bool = false
 var cake_given: bool = false
 
+## Survit au rechargement de la scène (réessayer sans revoir l'intro).
+var seen_intro: bool = false
+var auto_start: bool = false
+
 var _idx: int = -1
 
 

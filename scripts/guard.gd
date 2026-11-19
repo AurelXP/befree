@@ -213,6 +213,10 @@ func awareness() -> Vector2:
 	return Vector2(0.0, 0.0)
 
 
+func is_busy() -> bool:
+	return _busy
+
+
 func is_looking() -> bool:
 	return not _busy and (state == S.WATCH or state == S.WARN)
 
