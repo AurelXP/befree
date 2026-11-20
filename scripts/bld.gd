@@ -3,6 +3,10 @@ extends RefCounted
 ## Petits utilitaires pour construire des modèles 3D à partir de primitives.
 
 
+## Si vrai, les boîtes assez épaisses créées par box() reçoivent une collision (couche 1).
+static var collide: bool = false
+
+
 static func mat(tex: Texture2D = null, color: Color = Color.WHITE, rough: float = 0.9, metal: float = 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
@@ -46,7 +50,33 @@ static func box(parent: Node, size: Vector3, pos: Vector3, m: Material, rot: Vec
 	var bm := BoxMesh.new()
 	bm.size = size
 	mi.mesh = bm
-	return _place(parent, mi, pos, m, rot, nm)
+	_place(parent, mi, pos, m, rot, nm)
+	if collide and minf(size.x, minf(size.y, size.z)) >= 0.08:
+		var sb := StaticBody3D.new()
+		sb.collision_layer = 1
+		sb.collision_mask = 0
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = size
+		cs.shape = bs
+		sb.add_child(cs)
+		mi.add_child(sb)
+	return mi
+
+
+## Collision invisible. layer 1 = bloque corps et vue ; layer 4 = bloque seulement les corps.
+static func block(parent: Node, size: Vector3, pos: Vector3, layer: int = 1) -> StaticBody3D:
+	var sb := StaticBody3D.new()
+	sb.collision_layer = layer
+	sb.collision_mask = 0
+	sb.position = pos
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	sb.add_child(cs)
+	parent.add_child(sb)
+	return sb
 
 
 static func cyl(parent: Node, radius: float, height: float, pos: Vector3, m: Material, rot: Vector3 = Vector3.ZERO, top_radius: float = -1.0, nm: String = "") -> MeshInstance3D:
@@ -93,7 +123,7 @@ static func quad(parent: Node, size: Vector2, pos: Vector3, m: Material, rot: Ve
 
 
 ## Zone cliquable (couche 2) identifiée par un id.
-static func hit(parent: Node, id: String, size: Vector3, pos: Vector3) -> StaticBody3D:
+static func hit(parent: Node, id: String, size: Vector3, pos: Vector3, radius: float = 1.6) -> StaticBody3D:
 	var sb := StaticBody3D.new()
 	sb.collision_layer = 2
 	sb.collision_mask = 0
@@ -104,6 +134,8 @@ static func hit(parent: Node, id: String, size: Vector3, pos: Vector3) -> Static
 	cs.shape = bs
 	sb.add_child(cs)
 	sb.set_meta("id", id)
+	sb.set_meta("radius", radius)
+	sb.add_to_group("interact")
 	sb.name = "hit_" + id
 	parent.add_child(sb)
 	return sb
