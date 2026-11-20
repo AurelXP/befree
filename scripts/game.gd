@@ -8,6 +8,7 @@ signal caught(reason: String)
 signal game_over
 signal escaped
 signal state_reset
+signal day_started(day: int)
 
 const MINUTES_PER_SEC: float = 2.0
 const MAX_STRIKES: int = 3
@@ -18,19 +19,19 @@ const SCHEDULE: Array = [
 	[0, "night", ""],
 	[330, "free", ""],
 	[480, "meal", "breakfast"],
-	[525, "free", ""],
-	[570, "inspect", ""],
-	[600, "free", ""],
-	[630, "pee", ""],
-	[670, "free", ""],
-	[750, "meal", "lunch"],
-	[795, "free", ""],
+	[560, "free", ""],
+	[600, "inspect", ""],
+	[640, "free", ""],
+	[690, "pee", ""],
+	[750, "free", ""],
+	[780, "meal", "lunch"],
+	[860, "free", ""],
 	[930, "pee", ""],
-	[970, "free", ""],
+	[990, "free", ""],
 	[1020, "inspect", ""],
-	[1050, "free", ""],
+	[1060, "free", ""],
 	[1110, "meal", "dinner"],
-	[1155, "free", ""],
+	[1190, "free", ""],
 	[1290, "night", ""],
 ]
 
@@ -50,6 +51,13 @@ var spoon_equipped: bool = false
 var poster_moved: bool = false
 var digging: bool = false
 var cake_given: bool = false
+var money: int = 10
+var has_tray: bool = false
+var tray_cake: bool = false
+var has_pelle: bool = false
+var has_socks: bool = false
+var boost_t: float = 0.0
+var sleeping: bool = false
 
 ## Survit au rechargement de la scène (réessayer sans revoir l'intro).
 var seen_intro: bool = false
@@ -74,6 +82,13 @@ func reset() -> void:
 	poster_moved = false
 	digging = false
 	cake_given = false
+	money = 10
+	has_tray = false
+	tray_cake = false
+	has_pelle = false
+	has_socks = false
+	boost_t = 0.0
+	sleeping = false
 	_idx = -1
 	state_reset.emit()
 
@@ -101,6 +116,14 @@ func add_strike() -> void:
 		game_over.emit()
 
 
+func dig_rate() -> float:
+	return DIG_RATE * (2.2 if has_pelle else 1.0)
+
+
+func noise_mult() -> float:
+	return 0.4 if has_socks else 1.0
+
+
 func finish_duty() -> void:
 	duty_done = true
 
@@ -108,10 +131,12 @@ func finish_duty() -> void:
 func _process(delta: float) -> void:
 	if not running:
 		return
+	boost_t = maxf(0.0, boost_t - delta)
 	minutes += delta * MINUTES_PER_SEC * speed
 	if minutes >= 1440.0:
 		minutes -= 1440.0
 		day += 1
+		day_started.emit(day)
 	_update_phase()
 
 
