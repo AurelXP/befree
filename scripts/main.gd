@@ -20,6 +20,7 @@ var guard: Guard
 var player: Player
 var hud: Hud
 var cine: Cinematic
+var sfx: Sfx
 
 var state: String = "menu"  # menu | intro | play | over | end
 var busy: bool = false
@@ -46,6 +47,9 @@ func _ready() -> void:
 	cine = Cinematic.new()
 	add_child(cine)
 	cine.setup(cell, guard, player, hud)
+	sfx = Sfx.new()
+	add_child(sfx)
+	sfx.start_ambience()
 
 	Game.reset()
 	Game.phase_changed.connect(_on_phase)
@@ -108,6 +112,8 @@ func _begin_play() -> void:
 func _on_game_over() -> void:
 	state = "over"
 	Game.digging = false
+	sfx.dig_loop(false)
+	sfx.play("alarm", -4.0)
 	player.input_enabled = false
 	cell.set_digging_fx(false)
 	await get_tree().create_timer(1.6).timeout
@@ -118,6 +124,8 @@ func _escape() -> void:
 	if state != "play":
 		return
 	state = "end"
+	sfx.dig_loop(false)
+	sfx.play("win", -2.0)
 	Game.running = false
 	Game.digging = false
 	player.stop_digging()
@@ -192,6 +200,7 @@ func _update_dig(delta: float) -> void:
 		return
 	if not (Game.poster_moved and Game.spoon_equipped) or in_caught:
 		Game.digging = false
+		sfx.dig_loop(false)
 		cell.set_digging_fx(false)
 		return
 	Game.dig = minf(100.0, Game.dig + Game.DIG_RATE * delta)
@@ -217,6 +226,8 @@ func _on_phase(phase: String, kind: String) -> void:
 		return
 	if phase != "meal":
 		_clear_tray()
+	if phase != "free":
+		sfx.play("bell", -6.0)
 	match phase:
 		"meal":
 			var with_cake: bool = (kind == "lunch" and not Game.has_spoon and Game.day == 1)
@@ -309,9 +320,11 @@ func _use_toilet() -> void:
 		return
 	player.hands.set_pose("pee")
 	hud.toast("Tu te soulages...", 2.2)
+	sfx.play("pee", -6.0)
 	await get_tree().create_timer(2.6).timeout
 	if not _alive(my):
 		return
+	sfx.play("flush", -6.0)
 	if Game.phase == "pee" and not Game.duty_done:
 		Game.finish_duty()
 		guard.say("Bien. Maintenant, tiens-toi tranquille.", 3.0)
@@ -335,6 +348,7 @@ func _eat() -> void:
 		return
 	player.hands.set_pose("eat")
 	for i in 3:
+		sfx.play("chew", -4.0)
 		await get_tree().create_timer(1.1).timeout
 		if not _alive(my):
 			return
@@ -366,12 +380,14 @@ func _cake() -> void:
 	if not _alive(my):
 		return
 	cell.cake_cut()
+	sfx.play("clink", -4.0)
 	await get_tree().create_timer(0.9).timeout
 	if not _alive(my):
 		return
 	cell.cake_spoon.visible = false
 	Game.has_spoon = true
 	Game.cake_given = true
+	sfx.play("found", -4.0)
 	player.hands.set_pose("idle")
 	hud.banner("Une cuillère !", Color(0.95, 0.85, 0.4))
 	hud.toast("Léa a caché une cuillère dans le gâteau ! Tire le poster, sors-la et creuse.", 6.0)
@@ -387,6 +403,7 @@ func _toggle_poster() -> void:
 		return
 	Game.poster_moved = not Game.poster_moved
 	cell.set_poster_moved(Game.poster_moved)
+	sfx.play("scrape", -8.0)
 	player.hands.reach()
 	await get_tree().create_timer(0.6).timeout
 	if not _alive(my):
@@ -422,6 +439,7 @@ func _on_spoon() -> void:
 		return
 	Game.spoon_equipped = not Game.spoon_equipped
 	player.hands.set_spoon(Game.spoon_equipped)
+	sfx.play("clink", -10.0)
 	if not Game.spoon_equipped:
 		player.stop_digging()
 
@@ -438,6 +456,7 @@ func _on_dig_hold(active: bool) -> void:
 		return
 	Game.digging = active
 	player.hands.set_pose("dig" if active else "idle")
+	sfx.dig_loop(active)
 	cell.set_digging_fx(active)
 	if active:
 		Game.speed = 1.0
@@ -452,6 +471,8 @@ func _trigger_caught(reason: String) -> void:
 	_action_id += 1
 	busy = false
 	Game.digging = false
+	sfx.dig_loop(false)
+	sfx.play("alarm", -8.0)
 	player.stop_digging()
 	cell.set_digging_fx(false)
 	player.input_enabled = false
@@ -470,6 +491,7 @@ func _trigger_caught(reason: String) -> void:
 
 
 func _on_swing() -> void:
+	sfx.play("whack", 0.0)
 	player.shake(1.0, 0.7)
 	hud.flash_red()
 	Game.speed = 1.0
