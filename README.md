@@ -9,55 +9,63 @@ Jeu d'évasion en vue subjective (Godot 4.4, GL Compatibility, mobile paysage). 
 
 ## ÉTAT DU PROJET (à lire en premier si tu reprends le code)
 
-Dernière mise à jour : 2026-11-20. Le jeu est **jouable de bout en bout** dans un test automatisé (`tools/test_play.gd`) : intro → routine → gâteau/cuillère → poster → creusage → coups de matraque → fin. Il n'a **jamais été testé sur un vrai téléphone** : seules des captures en rendu logiciel (llvmpipe) et des tests headless ont été faites.
+Dernière mise à jour : 2026-11-20. Le jeu est **jouable de bout en bout** dans les tests automatisés (`tools/test_play.gd`, `tools/test_input.gd`). Il n'a **jamais été testé sur un vrai téléphone** : seulement des captures en rendu logiciel (llvmpipe) et des tests headless/xvfb.
 
-### Déjà fait
-- Cinématique d'intro (4 plans, sous-titres machine à écrire, bouton « Passer »), scène de fin.
-- Cellule 3D complète : murs de briques, sol carrelé, barreaux + porte qui pivote, lit, toilettes, lavabo + miroir, table + tabouret, étagère, seau, comptage des jours sur le mur, fenêtre grillagée (lumière jour/nuit), poster (cache le trou), trou qui grandit + gravats + poussière, plateau-repas, gâteau avec cuillère cachée. Couloir avec bureau du garde (lampe, beignets, journal), casiers, cellules.
-- Gaston : modèle procédural obèse (ventre qui respire, casquette, moustache, matraque), états lecture / beignet / sieste / surveillance / avertissement, marche, s'assoit, attaque à la matraque (entre dans la cellule, frappe, ressort).
-- Mains en vue subjective (doigts articulés, manches orange) avec poses : idle, manger, creuser, fouiller le gâteau, pisser, se couvrir ; la cuillère apparaît dans la main.
-- Routine (voir `Game.SCHEDULE`) : petit-déj 08:00, inspection 09:30, toilettes 10:30, déjeuner 12:30 (gâteau jour 1), toilettes 15:30, inspection 17:00, dîner 18:30, nuit 21:30–05:30. Une corvée (repas / toilettes) ratée = coup de matraque.
-- Suspicion (vue + bruit selon l'état de Gaston), 3 coups = cachot (game over), tunnel 0–100 %, punition = poster remis, cuillère rangée, tunnel abîmé de 25 %.
-- Sons générés par code (`sfx.gd`) : ambiance (bourdonnement + gouttes), cloche de phase, mastication, chasse d'eau, grattement du creusage (boucle), cuillère qui tinte, coup de matraque, alarme, jingles trouvaille/victoire.
-- Textures 100 % procédurales (`tex.gd`), modèles 100 % en primitives (`bld.gd`), aucun asset externe.
-- Build Android CI + release « latest ».
+### Ce que fait le jeu
+- **Cinématique d'intro** (4 plans), puis **déplacement libre à la Roblox** : joystick flottant à gauche (zone gauche de l'écran), glisser à droite pour regarder, bouton **Saut**, bouton **Action** contextuel (change de libellé selon l'objet le plus proche), bouton secondaire « Remettre le poster ».
+- **Prison immense** (60 × 66 m) : bloc cellulaire (cellule + couloir + bureau du garde), **cour** (panier de basket, bancs, banc de muscu, lampadaires, arbres, tour de guet), **jardin** clôturé (4 parterres), **cantine** (comptoir, 4 tables, cuistot), mur d'enceinte. Ciel et soleil suivent l'heure.
+- **PNJ** : Marco (dealer, boutique), Vieux Jo (jardinier, indices), Gros Rémi (cuistot), 6 détenus qui se promènent (dialogues).
+- **Économie** : argent (départ 10 €). Gagner : arroser un parterre (+6 €, 1x/jour/parterre), pièces qui traînent (+2 €, réapparaissent chaque jour). Dépenser chez Marco : pelle de poche 60 € (creuse x2,2), chaussettes 30 € (bruit x0,4), pot-de-vin 45 € (efface un coup), café 8 € (vitesse 60 s).
+- **Routine** (`Game.SCHEDULE`, 1 jour = 12 min réelles à x1) : repas à la cantine (prendre le plateau au comptoir puis manger à une table), toilettes obligatoires **dans la cellule**, inspections (en cellule, poster remis, cuillère rangée), **couvre-feu** (porte de cellule et grille de sortie fermées dès que le joueur est dedans ; s'il est dehors il a 16 s pour rentrer). Rater une corvée ou violer le couvre-feu = Gaston te poursuit et te frappe, puis te ramène en cellule (poster remis, cuillère rangée, tunnel −25 %, amende 5 €). 3 coups = cachot.
+- **Gaston** (garde obèse, matraque) : patrouille dans toute la prison via un graphe A* (`World.NODES/EDGES`), s'arrête pour lire / manger un beignet, poste fixe pendant repas / toilettes / inspection, dort à son bureau la nuit. **Vision réelle** (cône + raycast, `Guard.can_see`) et ouïe. Visible en rouge sur la **minicarte**.
+- **Évasion** : le gâteau de Léa (cantine, déjeuner) contient une cuillère → en cellule tirer le poster, sortir la cuillère, maintenir **Action** sur le trou pour creuser (le garde te voit / t'entend, le trou visible à travers les barreaux le trahit si le poster est tiré). 100 % = fin.
+- Sons synthétisés (`sfx.gd`), textures et modèles 100 % procéduraux.
+- **CI** : APK construit à chaque push sur `main` (voir plus bas).
 
 ### Reste à faire (par priorité)
-1. **Tester sur un vrai appareil Android** : performances (GL Compatibility, lumières Omni nombreuses → réduire si < 30 fps), taille de l'UI (la HUD se replace via `Hud._layout()` selon la taille du viewport ; vérifier la lisibilité des tailles de police sur petit écran), orientation paysage forcée (`window/handheld/orientation=0` dans `project.godot`, à vérifier), gestes tactiles (`player.gd` utilise la souris ; `emulate_touch_from_mouse` n'est pas nécessaire car Android envoie des events tactiles → vérifier que `InputEventScreenTouch/Drag` sont bien convertis ; sinon activer `input_devices/pointing/emulate_mouse_from_touch=true`, qui est la valeur par défaut).
-2. **Audio** : les effets sont des synthèses simples. À améliorer : pas du garde (pas de signal d'étape dans `guard.gd` pour l'instant), clés/serrure de la porte, voix/grognements de Gaston, vraie musique d'ambiance et de cinématique (fichiers .ogg libres de droits), mixage par bus audio.
-3. **Contenu / gameplay** : plus d'objets cachés à fouiller (matelas, étagère), plusieurs jours avec variantes, codétenu, pièges (garde qui vérifie l'étagère), événements aléatoires, fin alternative, sauvegarde de progression (`FileAccess` / `ConfigFile`).
-4. **Qualité visuelle** : vrais modèles (glTF) pour Gaston et les mains à la place des primitives, normal maps, ombres douces, post-traitement (vignettage, grain), animation des doigts plus fine, textures du trou en meilleure résolution (elles sont pixelisées de près).
-5. **Équilibrage** : constantes dans `game.gd` (`DIG_RATE`, `MINUTES_PER_SEC`) et dans `main.gd::_update_suspicion`. Un jour dure 12 min réelles à vitesse x1 (`MINUTES_PER_SEC = 2` ; 1440 min de jeu / 2 = 12 min).
-6. **Signature de release** : le workflow produit un APK *debug*. Pour le Play Store : ajouter un keystore release dans les secrets GitHub, passer à `--export-release` et à un AAB.
-7. **Icône Android** : l'icône est `icon.svg`; fournir `launcher_icons/main_192x192` et les adaptatives dans `export_presets.cfg`.
+1. **Tester sur un vrai appareil Android** : fluidité (GL Compatibility ; ~10 lumières Omni + monde étendu → réduire/ajouter du culling si < 30 fps), lisibilité de l'interface sur petit écran, sensibilité du regard (`TouchControls.LOOK_SENS`), zone du joystick (moitié gauche), vitesse (`Player.WALK_SPEED`). Vérifier que les touchers multiples (joystick + regard + bouton) marchent : `touch_controls.gd` lit `InputEventScreenTouch/Drag` ; la souris émulée depuis le tactile (`device == -1`) est ignorée.
+2. **Gameplay** : plus de jobs (cantine : débarrasser, cour : trier), objets cachés à fouiller (matelas, étagère), quêtes de Vieux Jo, rivalités entre détenus, fouilles surprises, plusieurs fins, sauvegarde de progression (`ConfigFile`), difficulté croissante (inspection plus fréquente, garde plus rapide).
+3. **PNJ** : ils ne collisionnent pas avec le joueur ni entre eux (ils se promènent en ligne droite entre des points) ; ajouter navigation/évitement, assise à la cantine, bagarres.
+4. **Audio** : pas du garde et des PNJ (pas de signal d'étape), voix, vraie musique d'ambiance (.ogg libres de droits), bus audio. Les modules audio vorbis/ogg sont retirés du template allégé (voir CI) : à réactiver dans `template.yml` si on ajoute des fichiers .ogg.
+5. **Qualité visuelle** : vrais modèles glTF (Gaston, PNJ, mains) — le module gltf est retiré du template allégé, mais l'import se fait à l'export donc ça reste possible —, normal maps, ombres douces, post-traitement, textures plus fines, animations d'assise.
+6. **Équilibrage** : `game.gd` (`DIG_RATE`, `MINUTES_PER_SEC`, fenêtres de la routine), `main.gd` (taux de suspicion dans `_update_suspicion`, `CURFEW_TIME`, prix `PRICES`).
+7. **Release Play Store** : le workflow signe avec une clé de test jetable. Ajouter un vrai keystore (secrets GitHub), un AAB, des icônes adaptatives (`export_presets.cfg` > `launcher_icons/*`).
 8. **Localisation** : tout le texte est en français, codé en dur.
 
+### Taille de l'APK
+- Moteur officiel Godot 4.4.1 release arm64 : **~25,6 Mo** (c'est presque tout le moteur ; le jeu lui-même pèse ~1 Mo car tout est procédural).
+- `.github/workflows/template.yml` (lancement manuel) compile un **template Android allégé** (optimisation de taille, `disable_advanced_gui`, text server avancé et ~25 modules retirés) et le publie dans la release `templates`. `android.yml` l'utilise automatiquement s'il existe. Si le build du jeu casse après coup, c'est qu'un module retiré est nécessaire : le réactiver dans `template.yml` (ligne `module_*_enabled=no`) et relancer le workflow. Pour revenir au template officiel : supprimer la release `templates`.
+- Autres leviers : ne garder que arm64 (déjà fait), pas d'assets externes (déjà fait).
+
 ### Pièges connus
-- Le `Control` racine du HUD doit rester en `MOUSE_FILTER_IGNORE`, sinon il avale tous les touchers et la caméra ne bouge plus (bug corrigé le 2026-11-20 ; `tools/test_input.gd` le vérifie avec de vrais événements).
-- `Game` est un autoload : un script lancé avec `godot -s` ne le voit pas par son nom, utiliser `root.get_node("Game")` (voir `tools/test_play.gd`).
-- Les `StaticBody3D` d'interaction (couche 2) sont créés par `Bld.hit()` avec un meta `id` ; `Player.hit_id()` les lit par raycast. Ajouter un objet cliquable = `Bld.hit(...)` + un cas dans `Main._on_tap`.
-- `cell.gd` : `Cell.STATIONS` définit les points de vue de caméra ; `Player.go_to()` anime les transitions.
-- Les `Bld.quad(parent, Vector2, ...)` prennent un `Vector2` (pas Vector3).
-- Après avoir ajouté un script avec `class_name`, relancer `godot --headless --import` pour régénérer le cache de classes.
+- Le `Control` racine du HUD doit rester en `MOUSE_FILTER_IGNORE`, sinon il avale les touchers. `TouchControls` écoute en `_input` et ignore les zones listées dans `Hud.touch.blockers` (boutons, dialogues, menus) : **tout nouveau bouton/panneau d'interface doit y être ajouté**.
+- `Game` est un autoload : un script lancé avec `godot -s` ne le voit pas par son nom, utiliser `root.get_node("Game")`.
+- Interactions : un objet est interactif s'il a un `Bld.hit(parent, id, taille, pos, rayon)` (groupe `interact`, meta `id` et `radius`) ; `Main._update_near` choisit le plus proche à portée ; ajouter l'action dans `Main._label_for` et `Main._on_action_down`. Les hits des PNJ sont enfants du PNJ (`npc_marco`, `npc_jo`, `npc_cook`, `npc_chat`).
+- Collisions : `Bld.collide = true` rend solides les boîtes épaisses ; `Bld.block(..., layer)` ajoute un bloc invisible (couche 1 = bloque corps ET vue du garde, couche 4 = bloque seulement les corps : barreaux, clôtures, portes). Le joueur (couche 8) masque 1|4 ; la vue du garde (raycast) masque 1.
+- Soleil : `World.sun` n'éclaire que la couche 2 ; tout mesh extérieur / acteur doit être marqué par `World.mark(node)` (sinon il reste sombre dehors).
+- Le garde se déplace par script (pas de physique) le long de `World.NODES` ; garder les chemins entre nœuds libres d'obstacles.
+- `Bld.quad(parent, Vector2, ...)` prend un `Vector2`. Après un nouveau `class_name`, relancer `godot --headless --import`.
+- L'écran est en mode d'étirement `expand` : la mise en page du HUD se recalcule dans `Hud._layout()`.
 
 ---
 
 ## Le jeu
 
-- **Contrôles (tactile)** : glisser = regarder autour ; boutons « Aller à » (côté droit) = se déplacer (Grille, Lit, Table, Toilettes, Mur, Fenêtre) ; toucher un objet = s'en servir (la caméra s'y rend toute seule) ; maintenir sur le trou = creuser ; bouton bas droite = sortir/ranger la cuillère ; « Temps x1/x4 » = accélérer l'horloge.
-- **Boucle** : observe Gaston, mange et va aux toilettes aux heures dites, récupère la cuillère dans le gâteau au déjeuner du jour 1, tire le poster, sors la cuillère, maintiens sur le trou pour creuser quand Gaston lit, mange ou dort. Pendant les inspections, remets le poster et range la cuillère.
+- **Contrôles (tactile)** : joystick flottant (moitié gauche) = marcher ; glisser (moitié droite) = regarder ; **Saut** ; **Action** (bas droite, contextuel : toilettes, plateau, manger, arroser, parler, creuser en maintenant...) ; **Sortir/Ranger la cuillère** ; **Temps x1/x4**. Au clavier (tests) : ZQSD/WASD/flèches + espace.
+- **Boucle** : explore, gagne de l'argent, mange aux heures dites, récupère la cuillère dans le gâteau au déjeuner, rentre en cellule avant l'inspection/le couvre-feu, creuse quand Gaston est loin ou endormi.
 
 ## Développer
 
 ```bash
 # Godot 4.4.1 (stable) requis
 godot --headless --import                     # importe le projet
-godot --headless -s tools/test_play.gd        # test automatisé de bout en bout (affiche l'état)
-# test des entrées (glisser, bouton de navigation), nécessite un affichage :
+godot --headless -s tools/test_play.gd        # test automatisé de bout en bout (affiche OK/FAIL)
+# test des entrées réelles (joystick, regard, saut), nécessite un affichage :
 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 --resolution 1280x720 -s tools/test_input.gd
 # captures d'écran (rendu logiciel) -> /tmp/befree_shots/*.png
 mkdir -p /tmp/befree_shots
 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 --resolution 1280x720 -s tools/screenshots.gd
+# captures de la carte seule : tools/world_shots.gd (w_*.png)
 ```
 
 Export local : Godot 4.4 > Projet > Exporter > Android (templates d'export + SDK Android requis). En CI, voir `.github/workflows/android.yml`.
@@ -68,14 +76,18 @@ Export local : Godot 4.4 > Projet > Exporter > Android (templates d'export + SDK
 |---|---|
 | `project.godot`, `export_presets.cfg` | config du projet et export Android |
 | `scenes/Main.tscn` | scène unique (un seul nœud avec `main.gd`) |
-| `scripts/game.gd` | autoload : état global, horloge, emploi du temps |
-| `scripts/main.gd` | règles du jeu, interactions, suspicion, punitions |
-| `scripts/cell.gd` | cellule, mobilier, lumières, trou, plateau |
-| `scripts/guard.gd` | Gaston : modèle, comportements, attaque |
+| `scripts/game.gd` | autoload : état global, horloge, emploi du temps, argent, objets |
+| `scripts/main.gd` | règles du jeu : interactions de proximité, cantine, jardin, boutique, couvre-feu, suspicion, punitions |
+| `scripts/world.gd` | prison entière : cour, jardin, cantine, PNJ, pièces, graphe A*, soleil/ciel |
+| `scripts/cell.gd` | cellule, couloir, mobilier, trou/poster, portes, lumières |
+| `scripts/guard.gd` | Gaston : modèle, patrouille A*, vision, poursuite |
+| `scripts/npc.gd` | PNJ (détenus, cuistot, dealer, jardinier) |
+| `scripts/player.gd` | corps du joueur (CharacterBody3D), caméra, saut |
+| `scripts/touch_controls.gd` | joystick flottant + regard multi-touch |
 | `scripts/hands.gd` | mains en vue subjective |
-| `scripts/player.gd` | caméra, points de vue, entrées tactiles |
-| `scripts/hud.gd` | interface, menus, sous-titres (mise en page adaptative) |
-| `scripts/sfx.gd` | effets sonores synthétisés |
+| `scripts/hud.gd`, `scripts/minimap.gd` | interface, dialogues, minicarte (mise en page adaptative) |
 | `scripts/cinematic.gd` | intro et scène de fin |
-| `scripts/tex.gd`, `scripts/bld.gd` | textures procédurales, outils de modélisation |
-| `tools/` | scripts de test et de capture d'écran |
+| `scripts/sfx.gd` | effets sonores synthétisés |
+| `scripts/tex.gd`, `scripts/bld.gd` | textures procédurales, outils de modélisation/collision |
+| `tools/` | tests (`test_play`, `test_input`) et captures (`screenshots`, `world_shots`) |
+| `.github/workflows/` | `android.yml` (APK), `template.yml` (moteur allégé, manuel) |
