@@ -19,6 +19,9 @@ var window_light: OmniLight3D
 var window_mat: StandardMaterial3D
 var guard_lamp: OmniLight3D
 var door: Node3D
+var exit_door: Node3D
+var door_open: bool = false
+var exit_open: bool = false
 var poster_pivot: Node3D
 var hole_node: Node3D
 var hole_mat: StandardMaterial3D
@@ -33,16 +36,19 @@ var desk_news: MeshInstance3D
 
 var _poster_tween: Tween
 var _door_tween: Tween
+var _exit_tween: Tween
 
 
 func build() -> void:
 	_build_environment()
+	Bld.collide = true
 	_build_shell()
 	_build_bars()
 	_build_furniture()
 	_build_poster_and_hole()
 	_build_tray()
 	_build_corridor()
+	Bld.collide = false
 	_build_lights()
 
 
@@ -102,6 +108,10 @@ func _build_bars() -> void:
 	Bld.box(door, Vector3(0.05, 2.4, 0.06), Vector3(0.9, 1.2, 0), bar_m)
 	var lock_m: StandardMaterial3D = Bld.mat(null, Color(0.12, 0.12, 0.13), 0.4, 0.8)
 	Bld.box(door, Vector3(0.12, 0.2, 0.1), Vector3(0.82, 1.0, 0), lock_m)
+	# collisions : la porte bloque les corps (couche 4), pas la vue
+	Bld.block(door, Vector3(0.95, 2.4, 0.12), Vector3(0.45, 1.2, 0.0), 4)
+	Bld.block(self, Vector3(1.5, 2.5, 0.12), Vector3(-1.25, 1.25, -2.0), 4)
+	Bld.block(self, Vector3(1.55, 2.5, 0.12), Vector3(1.225, 1.25, -2.0), 4)
 	# guichet pour les plateaux
 	Bld.box(self, Vector3(0.6, 0.04, 0.3), Vector3(1.3, 0.95, -2.12), lock_m)
 
@@ -123,7 +133,8 @@ func _build_furniture() -> void:
 	Bld.box(bed, Vector3(0.9, 0.16, 1.9), Vector3(0, 0.53, 0), Bld.tiled(Tex.fabric(Color(0.75, 0.73, 0.65), Color(0.45, 0.5, 0.62), 6), 0.4, Color.WHITE, 1.0))
 	Bld.sph(bed, 0.28, Vector3(0, 0.67, 0.72), Bld.mat(Tex.fabric(Color(0.85, 0.85, 0.82), Color(0.85, 0.85, 0.82)), Color.WHITE, 1.0), Vector3(1.2, 0.45, 0.8), "pillow")
 	Bld.box(bed, Vector3(0.94, 0.07, 1.2), Vector3(0, 0.64, -0.3), Bld.tiled(Tex.fabric(Color(0.32, 0.36, 0.3), Color(0.28, 0.32, 0.27), 0), 0.4, Color.WHITE, 1.0), Vector3(0, 0, 0), "blanket")
-	Bld.hit(self, "bed", Vector3(1.0, 0.5, 2.0), Vector3(-1.45, 0.55, 0.4))
+	Bld.hit(self, "bed", Vector3(1.0, 0.5, 2.0), Vector3(-1.45, 0.55, 0.4), 2.0)
+	Bld.block(self, Vector3(1.0, 0.8, 2.0), Vector3(-1.45, 0.4, 0.4))
 
 	# --- toilettes ---
 	Bld.cyl(self, 0.2, 0.42, Vector3(1.55, 0.21, 1.62), white_m, Vector3.ZERO, 0.17)
@@ -131,7 +142,8 @@ func _build_furniture() -> void:
 	Bld.cyl(self, 0.17, 0.02, Vector3(1.55, 0.5, 1.62), dark_m)
 	Bld.box(self, Vector3(0.42, 0.5, 0.16), Vector3(1.55, 0.72, 1.9), white_m)
 	Bld.cyl(self, 0.03, 0.03, Vector3(1.55, 0.99, 1.9), metal_m)
-	Bld.hit(self, "toilet", Vector3(0.55, 0.8, 0.6), Vector3(1.55, 0.45, 1.75))
+	Bld.hit(self, "toilet", Vector3(0.55, 0.8, 0.6), Vector3(1.55, 0.45, 1.75), 1.6)
+	Bld.block(self, Vector3(0.5, 0.9, 0.6), Vector3(1.55, 0.45, 1.75))
 
 	# --- lavabo ---
 	Bld.box(self, Vector3(0.5, 0.12, 0.35), Vector3(0.6, 0.95, 1.8), white_m)
@@ -139,7 +151,8 @@ func _build_furniture() -> void:
 	Bld.cyl(self, 0.018, 0.16, Vector3(0.6, 1.12, 1.92), metal_m)
 	Bld.cyl(self, 0.012, 0.12, Vector3(0.6, 1.2, 1.86), metal_m, Vector3(90, 0, 0))
 	Bld.box(self, Vector3(0.3, 0.45, 0.04), Vector3(0.6, 1.7, 1.97), Bld.tiled(Tex.metal(Color(0.6, 0.62, 0.65)), 0.4, Color.WHITE, 0.2, 0.9), Vector3.ZERO, "mirror")
-	Bld.hit(self, "sink", Vector3(0.6, 0.5, 0.45), Vector3(0.6, 1.0, 1.8))
+	Bld.hit(self, "sink", Vector3(0.6, 0.5, 0.45), Vector3(0.6, 1.0, 1.8), 1.5)
+	Bld.block(self, Vector3(0.5, 1.1, 0.35), Vector3(0.6, 0.55, 1.8))
 
 	# --- table + tabouret ---
 	Bld.box(self, Vector3(0.65, 0.05, 1.1), Vector3(1.6, 0.85, -0.9), wood_m)
@@ -151,6 +164,7 @@ func _build_furniture() -> void:
 		var ang: float = float(a) * TAU / 3.0
 		Bld.cyl(self, 0.02, 0.48, Vector3(0.95 + cos(ang) * 0.12, 0.24, -0.9 + sin(ang) * 0.12), metal_m)
 
+	Bld.block(self, Vector3(0.65, 0.9, 1.1), Vector3(1.6, 0.45, -0.9))
 	# --- étagère avec quelques affaires ---
 	Bld.box(self, Vector3(0.9, 0.04, 0.25), Vector3(-0.2, 1.4, 1.87), wood_m)
 	var cup_m: StandardMaterial3D = Bld.tiled(Tex.metal(Color(0.7, 0.7, 0.72)), 0.3, Color.WHITE, 0.4, 0.7)
@@ -168,7 +182,7 @@ func _build_furniture() -> void:
 	tm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	tm.roughness = 1.0
 	Bld.quad(self, Vector2(0.9, 0.45), Vector3(-1.0, 1.15, 1.99), tm, Vector3(0, 180, 0), "tally")
-	Bld.hit(self, "tally", Vector3(0.9, 0.5, 0.1), Vector3(-1.0, 1.15, 1.95))
+	Bld.hit(self, "tally", Vector3(0.9, 0.5, 0.1), Vector3(-1.0, 1.15, 1.95), 1.8)
 
 	# --- fenêtre grillagée (mur ouest) ---
 	window_mat = Bld.emissive(Color(0.5, 0.6, 0.9), 1.5)
@@ -178,7 +192,7 @@ func _build_furniture() -> void:
 		Bld.cyl(self, 0.015, 0.52, Vector3(-1.95, 2.05, -0.6 - 0.36 + 0.18 * float(i)), wbar_m)
 	Bld.box(self, Vector3(0.06, 0.04, 0.95), Vector3(-1.95, 2.3, -0.6), wbar_m)
 	Bld.box(self, Vector3(0.06, 0.04, 0.95), Vector3(-1.95, 1.8, -0.6), wbar_m)
-	Bld.hit(self, "window", Vector3(0.2, 0.6, 1.0), Vector3(-1.95, 2.05, -0.6))
+	Bld.hit(self, "window", Vector3(0.2, 0.6, 1.0), Vector3(-1.95, 2.05, -0.6), 1.8)
 
 
 func _build_poster_and_hole() -> void:
@@ -193,7 +207,7 @@ func _build_poster_and_hole() -> void:
 	var q: MeshInstance3D = Bld.quad(hole_node, Vector2(0.7, 0.7), Vector3.ZERO, hole_mat, Vector3(0, -90, 0), "hole_quad")
 	q.name = "hole_quad"
 	hole_node.scale = Vector3(0.3, 0.3, 0.3)
-	Bld.hit(self, "hole", Vector3(0.1, 0.7, 0.7), Vector3(1.95, 1.3, 0.2))
+	Bld.hit(self, "hole", Vector3(0.1, 0.7, 0.7), Vector3(1.95, 1.3, 0.2), 1.5)
 
 	# gravats
 	var dirt_m: StandardMaterial3D = Bld.tiled(Tex.dirt(), 0.3, Color(0.7, 0.68, 0.62), 1.0)
@@ -214,7 +228,7 @@ func _build_poster_and_hole() -> void:
 	pm.roughness = 0.7
 	Bld.quad(poster_pivot, Vector2(0.8, 1.1), Vector3(0, -0.05, 0), pm, Vector3(0, -90, 0), "poster_quad")
 	Bld.box(poster_pivot, Vector3(0.01, 0.025, 0.04), Vector3(0.005, 0.5, 0), Bld.mat(null, Color(0.9, 0.9, 0.5)))
-	Bld.hit(poster_pivot, "poster", Vector3(0.1, 1.1, 0.8), Vector3(-0.03, -0.05, 0))
+	Bld.hit(poster_pivot, "poster", Vector3(0.1, 1.1, 0.8), Vector3(-0.03, -0.05, 0), 1.5)
 
 	# poussière quand on creuse
 	dust = CPUParticles3D.new()
@@ -278,12 +292,26 @@ func _build_corridor() -> void:
 	Bld.box(self, Vector3(7.4, 0.2, 5.4), Vector3(0, 3.1, -4.7), wall_m)
 	Bld.box(self, Vector3(0.2, 3.3, 5.4), Vector3(-3.7, 1.5, -4.7), wall_m)
 	Bld.box(self, Vector3(0.2, 3.3, 5.4), Vector3(3.7, 1.5, -4.7), wall_m)
-	Bld.box(self, Vector3(7.6, 3.3, 0.2), Vector3(0, 1.5, -7.5), wall_m)
+	# mur du fond avec une ouverture (x 1.2 à 3.2) vers la cour
+	Bld.box(self, Vector3(5.1, 3.3, 0.2), Vector3(-1.35, 1.5, -7.5), wall_m)
+	Bld.box(self, Vector3(0.7, 3.3, 0.2), Vector3(3.55, 1.5, -7.5), wall_m)
+	Bld.box(self, Vector3(2.0, 0.9, 0.2), Vector3(2.2, 2.85, -7.5), wall_m)
+	exit_door = Node3D.new()
+	exit_door.position = Vector3(1.2, 0.0, -7.5)
+	add_child(exit_door)
+	var gate_m: StandardMaterial3D = Bld.tiled(Tex.metal(Color(0.3, 0.33, 0.36)), 0.5, Color.WHITE, 0.5, 0.7)
+	for i in 9:
+		Bld.cyl(exit_door, 0.025, 2.4, Vector3(0.05 + 0.24 * float(i), 1.2, 0), gate_m)
+	for y in [0.1, 1.2, 2.3]:
+		Bld.box(exit_door, Vector3(2.0, 0.06, 0.06), Vector3(1.0, y, 0), gate_m)
+	Bld.block(exit_door, Vector3(2.0, 2.4, 0.12), Vector3(1.0, 1.2, 0.0), 4)
+	Bld.cyl(self, 0.05, 2.0, Vector3(1.2, 1.0, -7.5), gate_m)
 	# bureau du garde (sur le côté) + objets
 	Bld.box(self, Vector3(1.6, 0.06, 0.8), Vector3(2.1, 0.8, -3.5), wood_m)
 	Bld.box(self, Vector3(0.06, 0.8, 0.7), Vector3(1.35, 0.4, -3.5), wood_m)
 	Bld.box(self, Vector3(0.06, 0.8, 0.7), Vector3(2.85, 0.4, -3.5), wood_m)
 	Bld.box(self, Vector3(1.5, 0.5, 0.04), Vector3(2.1, 0.55, -3.15), wood_m)
+	Bld.block(self, Vector3(1.6, 0.9, 0.8), Vector3(2.1, 0.45, -3.5))
 	# lampe de bureau
 	Bld.cyl(self, 0.1, 0.02, Vector3(2.6, 0.84, -3.6), Bld.mat(null, Color(0.1, 0.1, 0.1), 0.5, 0.5))
 	Bld.cyl(self, 0.01, 0.35, Vector3(2.6, 1.0, -3.6), Bld.mat(null, Color(0.1, 0.1, 0.1), 0.5, 0.5))
@@ -418,10 +446,21 @@ func hide_tray() -> void:
 
 
 func open_door(open: bool) -> void:
+	door_open = open
 	if _door_tween != null and _door_tween.is_valid():
 		_door_tween.kill()
 	_door_tween = create_tween().set_trans(Tween.TRANS_SINE)
 	_door_tween.tween_property(door, "rotation_degrees:y", 95.0 if open else 0.0, 0.7)
+
+
+func open_exit(open: bool) -> void:
+	if open == exit_open:
+		return
+	exit_open = open
+	if _exit_tween != null and _exit_tween.is_valid():
+		_exit_tween.kill()
+	_exit_tween = create_tween().set_trans(Tween.TRANS_SINE)
+	_exit_tween.tween_property(exit_door, "rotation_degrees:y", 95.0 if open else 0.0, 0.8)
 
 
 func set_digging_fx(on: bool) -> void:
