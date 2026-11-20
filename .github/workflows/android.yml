@@ -34,6 +34,19 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Use the lightweight custom template if it exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/tpl"
+          if gh release download templates --pattern android_release.apk --dir "$RUNNER_TEMP/tpl" 2>/dev/null; then
+            sed -i "s#custom_template/release=\"\"#custom_template/release=\"$RUNNER_TEMP/tpl/android_release.apk\"#" export_presets.cfg
+            echo "Custom lightweight template in use"
+            ls -lh "$RUNNER_TEMP/tpl"
+          else
+            echo "No custom template: using the official one"
+          fi
+
       - name: Configure Godot for Android export
         run: |
           mkdir -p ~/.config/godot
