@@ -7,7 +7,11 @@ signal retry_pressed
 signal spoon_pressed
 signal speed_pressed
 signal skip_pressed
-signal nav_pressed(station: String)
+signal action_down
+signal action_up
+signal aux_pressed
+signal jump_pressed
+signal dialog_choice(id: String)
 
 var root: Control
 var gameplay: Control
@@ -25,7 +29,16 @@ var spoon_btn: Button
 var speed_btn: Button
 var skip_btn: Button
 var bl_box: Control
-var nav_box: Control
+var money_label: Label
+var action_btn: Button
+var aux_btn: Button
+var jump_btn: Button
+var minimap: Minimap
+var touch: TouchControls
+var dialog_panel: Panel
+var dialog_name: Label
+var dialog_text: Label
+var dialog_opts: VBoxContainer
 var fade: ColorRect
 var flash: ColorRect
 var bar_top: ColorRect
@@ -46,6 +59,8 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	touch = TouchControls.new()
+	root.add_child(touch)
 	_build_gameplay()
 	_build_overlays()
 	_build_menus()
@@ -55,6 +70,9 @@ func _ready() -> void:
 	help_panel.visible = false
 	skip_btn.visible = false
 	_ignore_mouse(gameplay)
+	dialog_panel.visible = false
+	touch.blockers = [action_btn, aux_btn, jump_btn, spoon_btn, speed_btn, dialog_panel, skip_btn, title_panel, help_panel, over_panel, end_panel]
+	touch.jump_pressed.connect(func() -> void: jump_pressed.emit())
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
@@ -68,9 +86,13 @@ func _layout() -> void:
 	bar_bottom.size.x = w
 	bar_top.size.x = w
 	bar_bottom.position.y = h - bar_bottom.size.y
-	bl_box.position = Vector2(24, h - 160)
-	nav_box.position = Vector2(w - 184, 200)
-	spoon_btn.position = Vector2(w - 324, h - 94)
+	bl_box.position = Vector2(w - 224, 14)
+	action_btn.position = Vector2(w - 254, h - 124)
+	jump_btn.position = Vector2(w - 150, h - 270)
+	aux_btn.position = Vector2(w - 444, h - 230)
+	spoon_btn.position = Vector2(w - 554, h - 104)
+	dialog_panel.size = Vector2(minf(960.0, w - 60.0), 360.0)
+	dialog_panel.position = Vector2((w - dialog_panel.size.x) * 0.5, h - 380.0)
 	toast_label.size = Vector2(minf(1000.0, w - 80.0), 80)
 	toast_label.position = Vector2((w - toast_label.size.x) * 0.5, h - 130)
 	banner_label.size = Vector2(minf(1000.0, w - 80.0), 90)
@@ -173,39 +195,77 @@ func _build_gameplay() -> void:
 	speed_btn.pressed.connect(func() -> void: speed_pressed.emit())
 	right.add_child(speed_btn)
 
-	# bas gauche : barres
+	# colonne de droite : argent, minicarte, barres
 	var bl := VBoxContainer.new()
-	bl.size = Vector2(320, 140)
+	bl.size = Vector2(200, 380)
 	bl_box = bl
 	gameplay.add_child(bl)
-	bl.add_child(_label("Suspicion du garde", 20, Color(1, 0.75, 0.7)))
+	money_label = _label("Argent : 10 €", 28, Color(1.0, 0.9, 0.4))
+	money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	bl.add_child(money_label)
+	minimap = Minimap.new()
+	minimap.custom_minimum_size = Vector2(150, 164)
+	bl.add_child(minimap)
+	bl.add_child(_label("Suspicion", 18, Color(1, 0.75, 0.7)))
 	susp_bar = _bar(Color(0.9, 0.2, 0.15))
+	susp_bar.custom_minimum_size = Vector2(190, 18)
 	bl.add_child(susp_bar)
 	dig_box = VBoxContainer.new()
 	bl.add_child(dig_box)
-	dig_box.add_child(_label("Tunnel", 20, Color(0.9, 0.85, 0.6)))
+	dig_box.add_child(_label("Tunnel", 18, Color(0.9, 0.85, 0.6)))
 	dig_bar = _bar(Color(0.85, 0.65, 0.25))
+	dig_bar.custom_minimum_size = Vector2(190, 18)
 	dig_box.add_child(dig_bar)
 	dig_box.visible = false
 
-	# déplacements : points de vue dans la cellule
-	nav_box = VBoxContainer.new()
-	nav_box.add_theme_constant_override("separation", 8)
-	nav_box.add_child(_label("Aller à", 20, Color(0.9, 0.9, 1.0)))
-	for e in [["Grille", "center"], ["Lit", "bed"], ["Table", "table"], ["Toilettes", "toilet"], ["Mur", "wall"], ["Fenêtre", "window"]]:
-		var nb: Button = _button(e[0], 22, Color(0.3, 0.45, 0.35))
-		nb.custom_minimum_size = Vector2(160, 52)
-		var st: String = e[1]
-		nb.pressed.connect(func() -> void: nav_pressed.emit(st))
-		nav_box.add_child(nb)
-	gameplay.add_child(nav_box)
-
-	# bas droite : cuillère
-	spoon_btn = _button("Sortir la cuillère", 26, Color(0.6, 0.6, 0.7))
-	spoon_btn.custom_minimum_size = Vector2(300, 70)
+	# bas droite : action, saut, cuillère
+	action_btn = _button("", 30, Color(0.85, 0.55, 0.1))
+	action_btn.custom_minimum_size = Vector2(230, 100)
+	action_btn.size = Vector2(230, 100)
+	action_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	action_btn.button_down.connect(func() -> void: action_down.emit())
+	action_btn.button_up.connect(func() -> void: action_up.emit())
+	action_btn.visible = false
+	gameplay.add_child(action_btn)
+	aux_btn = _button("", 24, Color(0.35, 0.55, 0.75))
+	aux_btn.custom_minimum_size = Vector2(240, 64)
+	aux_btn.size = Vector2(240, 64)
+	aux_btn.pressed.connect(func() -> void: aux_pressed.emit())
+	aux_btn.visible = false
+	gameplay.add_child(aux_btn)
+	jump_btn = _button("Saut", 26, Color(0.4, 0.45, 0.55))
+	jump_btn.custom_minimum_size = Vector2(120, 120)
+	jump_btn.size = Vector2(120, 120)
+	jump_btn.button_down.connect(func() -> void: jump_pressed.emit())
+	gameplay.add_child(jump_btn)
+	spoon_btn = _button("Sortir la cuillère", 24, Color(0.6, 0.6, 0.7))
+	spoon_btn.custom_minimum_size = Vector2(290, 70)
+	spoon_btn.size = Vector2(290, 70)
 	spoon_btn.visible = false
 	spoon_btn.pressed.connect(func() -> void: spoon_pressed.emit())
 	gameplay.add_child(spoon_btn)
+
+	# dialogue (PNJ / boutique)
+	dialog_panel = Panel.new()
+	dialog_panel.add_theme_stylebox_override("panel", _style(Color(0.05, 0.05, 0.08, 0.92), 18))
+	gameplay.add_child(dialog_panel)
+	var dv := VBoxContainer.new()
+	dv.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dv.offset_left = 20
+	dv.offset_top = 14
+	dv.offset_right = -20
+	dv.offset_bottom = -14
+	dv.add_theme_constant_override("separation", 8)
+	dialog_panel.add_child(dv)
+	dialog_name = _label("", 30, Color(1, 0.85, 0.4))
+	dv.add_child(dialog_name)
+	dialog_text = _label("", 24, Color(0.95, 0.95, 1.0))
+	dialog_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialog_text.custom_minimum_size = Vector2(0, 70)
+	dv.add_child(dialog_text)
+	dialog_opts = VBoxContainer.new()
+	dialog_opts.add_theme_constant_override("separation", 6)
+	dv.add_child(dialog_opts)
 
 	# messages
 	toast_label = _label("", 30, Color.WHITE)
@@ -368,6 +428,7 @@ func refresh() -> void:
 	var urgent: bool = Game.phase == "meal" or Game.phase == "pee" or Game.phase == "inspect"
 	phase_label.add_theme_color_override("font_color", Color(1, 0.5, 0.4) if urgent else Color(0.8, 0.9, 1.0))
 	strikes_label.text = "Coups : %d / %d" % [Game.strikes, Game.MAX_STRIKES]
+	money_label.text = "Argent : %d €" % Game.money
 	susp_bar.value = Game.suspicion
 	dig_bar.value = Game.dig
 	dig_box.visible = Game.has_spoon
@@ -442,6 +503,7 @@ func clear_subtitle() -> void:
 
 func set_gameplay_visible(v: bool) -> void:
 	gameplay.visible = v
+	touch.set_enabled(v)
 
 
 func set_skip_visible(v: bool) -> void:
@@ -464,3 +526,41 @@ func show_end() -> void:
 	end_panel.visible = true
 	end_panel.color = Color(1, 1, 1, 0.0)
 	create_tween().tween_property(end_panel, "color:a", 0.85, 1.2)
+
+
+# ------------------------------------------------------------------ action / dialogue
+
+func set_action(label: String) -> void:
+	action_btn.visible = label != ""
+	if label != "":
+		action_btn.text = label
+
+
+func set_aux(label: String) -> void:
+	aux_btn.visible = label != ""
+	if label != "":
+		aux_btn.text = label
+
+
+func is_dialog_open() -> bool:
+	return dialog_panel.visible
+
+
+## options : Array de Dictionary {label, id, enabled}
+func show_dialog(who: String, text: String, options: Array) -> void:
+	dialog_name.text = who
+	dialog_text.text = text
+	for c in dialog_opts.get_children():
+		c.queue_free()
+	for o in options:
+		var b: Button = _button(o["label"], 24, Color(0.35, 0.5, 0.75))
+		b.custom_minimum_size = Vector2(0, 56)
+		b.disabled = not o.get("enabled", true)
+		var id: String = o["id"]
+		b.pressed.connect(func() -> void: dialog_choice.emit(id))
+		dialog_opts.add_child(b)
+	dialog_panel.visible = true
+
+
+func hide_dialog() -> void:
+	dialog_panel.visible = false
