@@ -86,13 +86,13 @@ func _layout() -> void:
 	bar_bottom.size.x = w
 	bar_top.size.x = w
 	bar_bottom.position.y = h - bar_bottom.size.y
-	bl_box.position = Vector2(w - 224, 14)
+	bl_box.position = Vector2(w - 224, 120)
 	action_btn.position = Vector2(w - 254, h - 124)
-	jump_btn.position = Vector2(w - 150, h - 270)
+	jump_btn.position = Vector2(w - 150, h - 250)
 	aux_btn.position = Vector2(w - 444, h - 230)
 	spoon_btn.position = Vector2(w - 554, h - 104)
-	dialog_panel.size = Vector2(minf(960.0, w - 60.0), 360.0)
-	dialog_panel.position = Vector2((w - dialog_panel.size.x) * 0.5, h - 380.0)
+	dialog_panel.size = Vector2(minf(960.0, w - 60.0), 440.0)
+	dialog_panel.position = Vector2((w - dialog_panel.size.x) * 0.5, h - 460.0)
 	toast_label.size = Vector2(minf(1000.0, w - 80.0), 80)
 	toast_label.position = Vector2((w - toast_label.size.x) * 0.5, h - 130)
 	banner_label.size = Vector2(minf(1000.0, w - 80.0), 90)
@@ -560,6 +560,7 @@ func show_dialog(who: String, text: String, options: Array) -> void:
 		b.pressed.connect(func() -> void: dialog_choice.emit(id))
 		dialog_opts.add_child(b)
 	dialog_panel.visible = true
+	toast_label.modulate.a = 0.0
 
 
 func hide_dialog() -> void:
