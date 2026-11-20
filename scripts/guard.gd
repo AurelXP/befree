@@ -6,6 +6,7 @@ extends Node3D
 signal arrived
 signal swing_hit
 signal attack_done
+signal patrol_arrived(point: Vector3)
 
 enum S { WATCH, READ, SNACK, DOZE, WARN, ATTACK }
 
@@ -13,8 +14,9 @@ const SEAT: Vector3 = Vector3(0.6, 0.0, -3.45)
 const DOOR_SPOT: Vector3 = Vector3(0.0, 0.0, -2.75)
 const SIT_DROP: float = -0.45
 const WALK_SPEED: float = 1.3
+const RUN_SPEED: float = 3.3
 
-var mode: String = "cycle"  # cycle | stand | doze
+var mode: String = "cycle"  # cycle | stand | doze | patrol | post
 var state: int = S.WATCH
 var gaze: Vector3 = Vector3(0, 1.5, 0.7)
 
@@ -38,6 +40,17 @@ var _t: float = 0.0
 var _state_time: float = 0.0
 var _state_dur: float = 6.0
 var _target: Vector3 = SEAT
+var _final: Vector3 = SEAT
+var _queue: Array = []
+var _speed: float = WALK_SPEED
+var _running: bool = false
+
+## Chemin A* fourni par le monde : Callable(from: Vector3, to: Vector3) -> PackedVector3Array
+var path_fn: Callable
+## Points de patrouille (positions) et point de poste.
+var patrol_points: Array = []
+var post_point: Vector3 = Vector3.ZERO
+var _patrol_last: int = -1
 var _walking: bool = false
 var _busy: bool = false
 var _sit: float = 1.0
@@ -231,57 +244,120 @@ func say(text: String, duration: float = 2.5) -> void:
 	_bubble_tween.tween_callback(func() -> void: bubble.visible = false)
 
 
-func set_mode(m: String) -> void:
+func set_mode(m: String, p: Vector3 = Vector3.ZERO) -> void:
 	if _busy:
 		return
 	mode = m
-	if m == "stand":
-		_target = DOOR_SPOT
-	else:
-		_target = SEAT
-	_walking = position.distance_to(_target) > 0.05
-	if _walking:
-		_sit_goal = 0.0
-	else:
-		_arrive()
+	_running = false
+	_speed = WALK_SPEED
+	match m:
+		"stand":
+			_goto(DOOR_SPOT)
+		"post":
+			post_point = p
+			_goto(p)
+		"patrol":
+			_goto_next_patrol()
+		_:
+			_goto(SEAT)
 	_pick_state(S.DOZE if m == "doze" else S.WATCH)
 
 
-func walk_to(p: Vector3) -> void:
-	_target = p
+## Marche jusqu'à p en suivant le graphe de chemins.
+func _goto(p: Vector3) -> void:
+	_final = p
+	var pts: Array = []
+	if path_fn.is_valid():
+		pts = Array(path_fn.call(position, p))
+	else:
+		pts = [p]
+	_queue = pts
+	_next_leg()
+
+
+func _next_leg() -> void:
+	if _queue.is_empty():
+		_walking = false
+		_arrive()
+		arrived.emit()
+		return
+	_target = _queue.pop_front()
 	_walking = true
 	_sit_goal = 0.0
+
+
+func _goto_next_patrol() -> void:
+	if patrol_points.is_empty():
+		return
+	var i: int = randi() % patrol_points.size()
+	if patrol_points.size() > 1 and i == _patrol_last:
+		i = (i + 1) % patrol_points.size()
+	_patrol_last = i
+	_goto(patrol_points[i])
+
+
+func walk_to(p: Vector3) -> void:
+	_goto(p)
 	await arrived
 
 
-## Séquence de coup de matraque : entre dans la cellule, frappe, ressort.
-func attack(cell: Cell, victim: Vector3) -> void:
+## Voit-il ce point ? Distance, cône de vision (selon la direction de la tête) et ligne de vue.
+func can_see(p: Vector3, max_dist: float = 16.0, fov_deg: float = 80.0) -> bool:
+	var eye: Vector3 = global_position + Vector3(0, 1.9, 0)
+	var d: Vector3 = p - eye
+	if d.length() > max_dist:
+		return false
+	var yaw: float = rotation.y + (head.rotation.y if head != null else 0.0)
+	var fwd := Vector3(sin(yaw), 0.0, cos(yaw))
+	var flat := Vector3(d.x, 0.0, d.z)
+	if flat.length() > 0.5 and fwd.dot(flat.normalized()) < cos(deg_to_rad(fov_deg)):
+		return false
+	var q := PhysicsRayQueryParameters3D.create(eye, p, 1)
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## Poursuit une cible (Node3D) jusqu'au contact, la frappe, puis rend la main.
+func chase(target: Node3D) -> void:
 	_busy = true
 	state = S.ATTACK
+	mode = "chase"
 	zzz.visible = false
 	paper.visible = false
 	donut.visible = false
+	_running = true
+	_speed = RUN_SPEED
 	say("ÇA SUFFIT !", 1.6)
-	cell.open_door(true)
-	await get_tree().create_timer(0.6).timeout
-	await walk_to(Vector3(0.1, 0.0, -1.8))
-	var stop: Vector3 = Vector3(clampf(victim.x, -1.0, 1.0), 0.0, clampf(victim.z - 1.15, -1.5, 0.8))
-	await walk_to(stop)
-	var d: Vector3 = victim - position
+	var t: float = 0.0
+	var repath: float = 0.0
+	while t < 25.0:
+		await get_tree().process_frame
+		var dt: float = get_process_delta_time()
+		t += dt
+		repath -= dt
+		var tp: Vector3 = target.global_position
+		var dist: float = Vector2(tp.x - position.x, tp.z - position.z).length()
+		if dist < 1.5:
+			break
+		if repath <= 0.0:
+			repath = 0.3
+			_goto(tp)
+	_walking = false
+	_queue.clear()
+	_running = false
+	_speed = WALK_SPEED
+	var d: Vector3 = target.global_position - position
 	_yaw_goal = atan2(d.x, d.z)
-	await get_tree().create_timer(0.35).timeout
+	await get_tree().create_timer(0.3).timeout
 	_swing = 0.0
 	var tw: Tween = create_tween()
 	tw.tween_property(self, "_swing", -1.0, 0.35).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(self, "_swing", 1.0, 0.16).set_trans(Tween.TRANS_QUAD)
 	tw.tween_callback(func() -> void: swing_hit.emit())
-	tw.tween_interval(0.5)
+	tw.tween_interval(0.6)
 	await tw.finished
 	_swing = 0.0
 	say("Tiens-toi tranquille !", 2.0)
-	await walk_to(Vector3(0.1, 0.0, -1.8))
-	await walk_to(DOOR_SPOT)
-	cell.open_door(false)
+	await get_tree().create_timer(0.8).timeout
 	_busy = false
 	attack_done.emit()
 
@@ -289,11 +365,17 @@ func attack(cell: Cell, victim: Vector3) -> void:
 # ------------------------------------------------------------------ interne
 
 func _arrive() -> void:
-	if _target.is_equal_approx(SEAT):
+	if _final.is_equal_approx(SEAT) and mode != "patrol" and mode != "post":
 		_sit_goal = 1.0
 	else:
 		_sit_goal = 0.0
-	_yaw_goal = 0.0
+	if mode == "stand" or mode == "cycle" or mode == "doze":
+		_yaw_goal = 0.0
+	if mode == "patrol" and not _busy:
+		var r: float = randf()
+		_pick_state(S.SNACK if r < 0.25 else (S.READ if r < 0.45 else S.WATCH))
+		_state_dur = randf_range(3.0, 7.0)
+		patrol_arrived.emit(_final)
 
 
 func _pick_state(s: int) -> void:
@@ -316,7 +398,11 @@ func _pick_state(s: int) -> void:
 
 
 func _next_state() -> void:
-	if mode == "stand":
+	if mode == "patrol":
+		_pick_state(S.WATCH)
+		_goto_next_patrol()
+		return
+	if mode == "stand" or mode == "post":
 		_pick_state(S.WATCH)
 		return
 	if mode == "doze":
@@ -360,13 +446,15 @@ func _process(delta: float) -> void:
 		d.y = 0.0
 		if d.length() < 0.05:
 			position = _target
-			_walking = false
-			_arrive()
-			arrived.emit()
+			_next_leg()
 		else:
-			position += d.normalized() * WALK_SPEED * delta
+			position += d.normalized() * _speed * delta
 			_yaw_goal = atan2(d.x, d.z)
-			swing_legs = sin(_t * 7.0)
+			swing_legs = sin(_t * (11.0 if _running else 7.0))
+	if not _walking and not _busy and (mode == "post" or mode == "stand" or mode == "patrol") and (state == S.WATCH or state == S.WARN):
+		var gd2: Vector3 = gaze - global_position
+		if Vector2(gd2.x, gd2.z).length() < 22.0:
+			_yaw_goal = atan2(gd2.x, gd2.z)
 	rotation.y = lerp_angle(rotation.y, _yaw_goal, 1.0 - exp(-delta * 6.0))
 	_sit = lerpf(_sit, _sit_goal, 1.0 - exp(-delta * 4.0))
 
