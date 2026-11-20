@@ -33,6 +33,7 @@ Dernière mise à jour : 2026-11-20. Le jeu est **jouable de bout en bout** dans
 8. **Localisation** : tout le texte est en français, codé en dur.
 
 ### Pièges connus
+- Le `Control` racine du HUD doit rester en `MOUSE_FILTER_IGNORE`, sinon il avale tous les touchers et la caméra ne bouge plus (bug corrigé le 2026-11-20 ; `tools/test_input.gd` le vérifie avec de vrais événements).
 - `Game` est un autoload : un script lancé avec `godot -s` ne le voit pas par son nom, utiliser `root.get_node("Game")` (voir `tools/test_play.gd`).
 - Les `StaticBody3D` d'interaction (couche 2) sont créés par `Bld.hit()` avec un meta `id` ; `Player.hit_id()` les lit par raycast. Ajouter un objet cliquable = `Bld.hit(...)` + un cas dans `Main._on_tap`.
 - `cell.gd` : `Cell.STATIONS` définit les points de vue de caméra ; `Player.go_to()` anime les transitions.
@@ -43,7 +44,7 @@ Dernière mise à jour : 2026-11-20. Le jeu est **jouable de bout en bout** dans
 
 ## Le jeu
 
-- **Contrôles (tactile)** : glisser = regarder ; toucher un objet = s'en servir ; maintenir sur le trou = creuser ; bouton bas droite = sortir/ranger la cuillère ; « Temps x1/x4 » = accélérer l'horloge.
+- **Contrôles (tactile)** : glisser = regarder autour ; boutons « Aller à » (côté droit) = se déplacer (Grille, Lit, Table, Toilettes, Mur, Fenêtre) ; toucher un objet = s'en servir (la caméra s'y rend toute seule) ; maintenir sur le trou = creuser ; bouton bas droite = sortir/ranger la cuillère ; « Temps x1/x4 » = accélérer l'horloge.
 - **Boucle** : observe Gaston, mange et va aux toilettes aux heures dites, récupère la cuillère dans le gâteau au déjeuner du jour 1, tire le poster, sors la cuillère, maintiens sur le trou pour creuser quand Gaston lit, mange ou dort. Pendant les inspections, remets le poster et range la cuillère.
 
 ## Développer
@@ -52,6 +53,8 @@ Dernière mise à jour : 2026-11-20. Le jeu est **jouable de bout en bout** dans
 # Godot 4.4.1 (stable) requis
 godot --headless --import                     # importe le projet
 godot --headless -s tools/test_play.gd        # test automatisé de bout en bout (affiche l'état)
+# test des entrées (glisser, bouton de navigation), nécessite un affichage :
+xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 --resolution 1280x720 -s tools/test_input.gd
 # captures d'écran (rendu logiciel) -> /tmp/befree_shots/*.png
 mkdir -p /tmp/befree_shots
 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 --resolution 1280x720 -s tools/screenshots.gd
