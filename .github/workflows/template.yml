@@ -1,0 +1,73 @@
+name: Build lightweight Godot Android template
+
+# À lancer à la main (Actions > Build lightweight Godot Android template > Run workflow).
+# Compile Godot 4.4.1 pour Android arm64 en optimisant la taille et en retirant les modules
+# inutiles à BeFree. Le résultat est publié dans la release "templates" ; le workflow
+# "Build Android APK" l'utilise automatiquement s'il existe (sinon : template officiel).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  template:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install build tools
+        run: |
+          python3 -m pip install --user scons
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | tail -1)"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platform-tools" "build-tools;34.0.0" "platforms;android-34" "cmake;3.10.2.4988404" "ndk;28.1.13356709"
+
+      - name: Get Godot source
+        run: git clone --depth 1 --branch 4.4.1-stable https://github.com/godotengine/godot.git "$RUNNER_TEMP/godot"
+
+      - name: Build template (arm64, size-optimized)
+        working-directory: ${{ runner.temp }}/godot
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.1.13356709"
+          export PATH="$HOME/.local/bin:$PATH"
+          scons platform=android target=template_release arch=arm64 \
+            optimize=size lto=thin production=yes \
+            disable_advanced_gui=yes \
+            module_text_server_adv_enabled=no module_text_server_fb_enabled=yes \
+            module_mono_enabled=no module_openxr_enabled=no module_webrtc_enabled=no \
+            module_websocket_enabled=no module_enet_enabled=no module_multiplayer_enabled=no \
+            module_mbedtls_enabled=no module_upnp_enabled=no module_jolt_physics_enabled=no \
+            module_gltf_enabled=no module_fbx_enabled=no module_csg_enabled=no \
+            module_gridmap_enabled=no module_theora_enabled=no module_ogg_enabled=no \
+            module_vorbis_enabled=no module_webp_enabled=no module_mobile_vr_enabled=no \
+            module_godot_physics_2d_enabled=no module_navigation_2d_enabled=no \
+            module_minimp3_enabled=no module_camera_enabled=no module_jsonrpc_enabled=no \
+            module_vhacd_enabled=no module_raycast_enabled=no module_msdfgen_enabled=no \
+            -j"$(nproc)"
+
+      - name: Package template APK
+        working-directory: ${{ runner.temp }}/godot/platform/android/java
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          ./gradlew generateGodotTemplates
+          ls -lh "$RUNNER_TEMP/godot/bin"
+
+      - name: Publish to the "templates" release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete templates --yes --cleanup-tag || true
+          gh release create templates "$RUNNER_TEMP/godot/bin/android_release.apk" \
+            --title "Templates Godot Android allégés" \
+            --notes "Template Android arm64 optimisé en taille, compilé depuis Godot 4.4.1-stable." \
+            --target "$GITHUB_SHA"
