@@ -59,6 +59,7 @@ func _ready() -> void:
 	hud.retry_pressed.connect(_on_retry)
 	hud.spoon_pressed.connect(_on_spoon)
 	hud.speed_pressed.connect(_on_speed)
+	hud.nav_pressed.connect(_on_nav)
 	player.tapped.connect(_on_tap)
 	player.dig_hold.connect(_on_dig_hold)
 	guard.swing_hit.connect(_on_swing)
@@ -442,6 +443,21 @@ func _on_spoon() -> void:
 	sfx.play("clink", -10.0)
 	if not Game.spoon_equipped:
 		player.stop_digging()
+
+
+func _on_nav(station: String) -> void:
+	if state != "play" or in_caught:
+		return
+	if busy:
+		return
+	Game.digging = false
+	player.stop_digging()
+	cell.set_digging_fx(false)
+	sfx.dig_loop(false)
+	player.hands.set_pose("idle")
+	var my: int = _begin()
+	await player.go_to(station)
+	_end(my)
 
 
 func _on_speed() -> void:
