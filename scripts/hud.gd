@@ -23,6 +23,7 @@ var susp_bar: ProgressBar
 var spoon_btn: Button
 var speed_btn: Button
 var skip_btn: Button
+var bl_box: Control
 var fade: ColorRect
 var flash: ColorRect
 var bar_top: ColorRect
@@ -51,6 +52,28 @@ func _ready() -> void:
 	help_panel.visible = false
 	skip_btn.visible = false
 	_ignore_mouse(gameplay)
+	get_viewport().size_changed.connect(_layout)
+	_layout()
+
+
+## Replace les éléments à position absolue selon la taille réelle de l'écran
+## (le mode d'étirement "expand" donne un viewport plus large que 1280 sur téléphones allongés).
+func _layout() -> void:
+	var sz: Vector2 = get_viewport().get_visible_rect().size
+	var w: float = sz.x
+	var h: float = sz.y
+	bar_bottom.size.x = w
+	bar_top.size.x = w
+	bar_bottom.position.y = h - bar_bottom.size.y
+	bl_box.position = Vector2(24, h - 160)
+	spoon_btn.position = Vector2(w - 324, h - 94)
+	toast_label.size = Vector2(minf(1000.0, w - 80.0), 80)
+	toast_label.position = Vector2((w - toast_label.size.x) * 0.5, h - 130)
+	banner_label.size = Vector2(minf(1000.0, w - 80.0), 90)
+	banner_label.position = Vector2((w - banner_label.size.x) * 0.5, 150)
+	subtitle.size = Vector2(minf(1040.0, w - 240.0), 120)
+	subtitle.position = Vector2((w - subtitle.size.x) * 0.5, h - 170)
+	skip_btn.position = Vector2(w - 214, 24)
 
 
 # ------------------------------------------------------------------ fabrique
@@ -148,10 +171,8 @@ func _build_gameplay() -> void:
 
 	# bas gauche : barres
 	var bl := VBoxContainer.new()
-	bl.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	bl.position = Vector2(24, 560)
 	bl.size = Vector2(320, 140)
-	bl.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bl_box = bl
 	gameplay.add_child(bl)
 	bl.add_child(_label("Suspicion du garde", 20, Color(1, 0.75, 0.7)))
 	susp_bar = _bar(Color(0.9, 0.2, 0.15))
@@ -165,8 +186,6 @@ func _build_gameplay() -> void:
 
 	# bas droite : cuillère
 	spoon_btn = _button("Sortir la cuillère", 26, Color(0.6, 0.6, 0.7))
-	spoon_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	spoon_btn.position = Vector2(1280 - 24 - 300, 720 - 24 - 70)
 	spoon_btn.custom_minimum_size = Vector2(300, 70)
 	spoon_btn.visible = false
 	spoon_btn.pressed.connect(func() -> void: spoon_pressed.emit())
@@ -174,16 +193,11 @@ func _build_gameplay() -> void:
 
 	# messages
 	toast_label = _label("", 30, Color.WHITE)
-	toast_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	toast_label.position = Vector2(140, 590)
-	toast_label.size = Vector2(1000, 80)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast_label.modulate.a = 0.0
 	gameplay.add_child(toast_label)
 	banner_label = _label("", 56, Color(1, 0.85, 0.3))
-	banner_label.position = Vector2(140, 150)
-	banner_label.size = Vector2(1000, 90)
 	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_label.modulate.a = 0.0
 	gameplay.add_child(banner_label)
@@ -197,20 +211,16 @@ func _build_overlays() -> void:
 	root.add_child(flash)
 	bar_top = ColorRect.new()
 	bar_top.color = Color.BLACK
-	bar_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	bar_top.size = Vector2(1280, 0)
 	bar_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bar_top)
 	bar_bottom = ColorRect.new()
 	bar_bottom.color = Color.BLACK
-	bar_bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bar_bottom.size = Vector2(1280, 0)
 	bar_bottom.position = Vector2(0, 720)
 	bar_bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bar_bottom)
 	subtitle = _label("", 34, Color(1, 1, 1))
-	subtitle.position = Vector2(120, 560)
-	subtitle.size = Vector2(1040, 120)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -223,7 +233,6 @@ func _build_overlays() -> void:
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fade)
 	skip_btn = _button("Passer >>", 24, Color(0.4, 0.4, 0.45))
-	skip_btn.position = Vector2(1280 - 24 - 190, 24)
 	skip_btn.custom_minimum_size = Vector2(190, 56)
 	skip_btn.pressed.connect(func() -> void: skip_pressed.emit())
 	root.add_child(skip_btn)
@@ -390,10 +399,11 @@ func fade_to(alpha: float, duration: float, color: Color = Color.BLACK) -> void:
 
 func letterbox(on: bool) -> void:
 	var h: float = 90.0 if on else 0.0
+	var sh: float = get_viewport().get_visible_rect().size.y
 	var t: Tween = create_tween().set_parallel(true)
 	t.tween_property(bar_top, "size:y", h, 0.6)
 	t.tween_property(bar_bottom, "size:y", h, 0.6)
-	t.tween_property(bar_bottom, "position:y", 720.0 - h, 0.6)
+	t.tween_property(bar_bottom, "position:y", sh - h, 0.6)
 
 
 ## Sous-titre type machine à écrire, retourne quand le texte est affiché.
