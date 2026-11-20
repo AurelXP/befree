@@ -18,12 +18,13 @@ Dernière mise à jour : 2026-11-20. Le jeu est **jouable de bout en bout** dans
 - Mains en vue subjective (doigts articulés, manches orange) avec poses : idle, manger, creuser, fouiller le gâteau, pisser, se couvrir ; la cuillère apparaît dans la main.
 - Routine (voir `Game.SCHEDULE`) : petit-déj 08:00, inspection 09:30, toilettes 10:30, déjeuner 12:30 (gâteau jour 1), toilettes 15:30, inspection 17:00, dîner 18:30, nuit 21:30–05:30. Une corvée (repas / toilettes) ratée = coup de matraque.
 - Suspicion (vue + bruit selon l'état de Gaston), 3 coups = cachot (game over), tunnel 0–100 %, punition = poster remis, cuillère rangée, tunnel abîmé de 25 %.
+- Sons générés par code (`sfx.gd`) : ambiance (bourdonnement + gouttes), cloche de phase, mastication, chasse d'eau, grattement du creusage (boucle), cuillère qui tinte, coup de matraque, alarme, jingles trouvaille/victoire.
 - Textures 100 % procédurales (`tex.gd`), modèles 100 % en primitives (`bld.gd`), aucun asset externe.
 - Build Android CI + release « latest ».
 
 ### Reste à faire (par priorité)
-1. **Tester sur un vrai appareil Android** : performances (GL Compatibility, lumières Omni nombreuses → réduire si < 30 fps), taille de l'UI (la HUD est positionnée pour 1280×720 en pixels fixes, voir `hud.gd` `spoon_btn.position` etc. → passer à des ancres/containers), orientation paysage forcée (`window/handheld/orientation=0` dans `project.godot`, à vérifier), gestes tactiles (`player.gd` utilise la souris ; `emulate_touch_from_mouse` n'est pas nécessaire car Android envoie des events tactiles → vérifier que `InputEventScreenTouch/Drag` sont bien convertis ; sinon activer `input_devices/pointing/emulate_mouse_from_touch=true`, qui est la valeur par défaut).
-2. **Audio** : aucun son pour l'instant. Ajouter (générés par code via `AudioStreamGenerator` ou fichiers .ogg libres) : pas du garde, clés, grattement du creusage, mastication, chasse d'eau, coup de matraque, ambiance prison, musique de cinématique.
+1. **Tester sur un vrai appareil Android** : performances (GL Compatibility, lumières Omni nombreuses → réduire si < 30 fps), taille de l'UI (la HUD se replace via `Hud._layout()` selon la taille du viewport ; vérifier la lisibilité des tailles de police sur petit écran), orientation paysage forcée (`window/handheld/orientation=0` dans `project.godot`, à vérifier), gestes tactiles (`player.gd` utilise la souris ; `emulate_touch_from_mouse` n'est pas nécessaire car Android envoie des events tactiles → vérifier que `InputEventScreenTouch/Drag` sont bien convertis ; sinon activer `input_devices/pointing/emulate_mouse_from_touch=true`, qui est la valeur par défaut).
+2. **Audio** : les effets sont des synthèses simples. À améliorer : pas du garde (pas de signal d'étape dans `guard.gd` pour l'instant), clés/serrure de la porte, voix/grognements de Gaston, vraie musique d'ambiance et de cinématique (fichiers .ogg libres de droits), mixage par bus audio.
 3. **Contenu / gameplay** : plus d'objets cachés à fouiller (matelas, étagère), plusieurs jours avec variantes, codétenu, pièges (garde qui vérifie l'étagère), événements aléatoires, fin alternative, sauvegarde de progression (`FileAccess` / `ConfigFile`).
 4. **Qualité visuelle** : vrais modèles (glTF) pour Gaston et les mains à la place des primitives, normal maps, ombres douces, post-traitement (vignettage, grain), animation des doigts plus fine, textures du trou en meilleure résolution (elles sont pixelisées de près).
 5. **Équilibrage** : constantes dans `game.gd` (`DIG_RATE`, `MINUTES_PER_SEC`) et dans `main.gd::_update_suspicion`. Un jour dure 12 min réelles à vitesse x1 (`MINUTES_PER_SEC = 2` ; 1440 min de jeu / 2 = 12 min).
@@ -70,7 +71,8 @@ Export local : Godot 4.4 > Projet > Exporter > Android (templates d'export + SDK
 | `scripts/guard.gd` | Gaston : modèle, comportements, attaque |
 | `scripts/hands.gd` | mains en vue subjective |
 | `scripts/player.gd` | caméra, points de vue, entrées tactiles |
-| `scripts/hud.gd` | interface, menus, sous-titres |
+| `scripts/hud.gd` | interface, menus, sous-titres (mise en page adaptative) |
+| `scripts/sfx.gd` | effets sonores synthétisés |
 | `scripts/cinematic.gd` | intro et scène de fin |
 | `scripts/tex.gd`, `scripts/bld.gd` | textures procédurales, outils de modélisation |
 | `tools/` | scripts de test et de capture d'écran |
