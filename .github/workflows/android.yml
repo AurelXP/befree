@@ -53,12 +53,12 @@ jobs:
 
       - name: Export APK
         env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.temp }}/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: android
         run: |
           mkdir -p build
-          godot --headless --export-debug "Android" build/befree.apk
+          godot --headless --export-release "Android" build/befree.apk
           ls -lh build
 
       - uses: actions/upload-artifact@v4
@@ -74,5 +74,5 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest build/befree.apk \
             --title "BeFree - dernier build" \
-            --notes "APK Android (debug) généré automatiquement depuis le dernier commit de main." \
+            --notes "APK Android (release allégé, signé avec une clé de test) généré automatiquement depuis le dernier commit de main." \
             --target "$GITHUB_SHA"
