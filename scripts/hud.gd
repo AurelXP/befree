@@ -7,6 +7,7 @@ signal retry_pressed
 signal spoon_pressed
 signal speed_pressed
 signal skip_pressed
+signal nav_pressed(station: String)
 
 var root: Control
 var gameplay: Control
@@ -24,6 +25,7 @@ var spoon_btn: Button
 var speed_btn: Button
 var skip_btn: Button
 var bl_box: Control
+var nav_box: Control
 var fade: ColorRect
 var flash: ColorRect
 var bar_top: ColorRect
@@ -42,6 +44,7 @@ func _ready() -> void:
 	layer = 10
 	root = Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	_build_gameplay()
 	_build_overlays()
@@ -66,6 +69,7 @@ func _layout() -> void:
 	bar_top.size.x = w
 	bar_bottom.position.y = h - bar_bottom.size.y
 	bl_box.position = Vector2(24, h - 160)
+	nav_box.position = Vector2(w - 184, 200)
 	spoon_btn.position = Vector2(w - 324, h - 94)
 	toast_label.size = Vector2(minf(1000.0, w - 80.0), 80)
 	toast_label.position = Vector2((w - toast_label.size.x) * 0.5, h - 130)
@@ -183,6 +187,18 @@ func _build_gameplay() -> void:
 	dig_bar = _bar(Color(0.85, 0.65, 0.25))
 	dig_box.add_child(dig_bar)
 	dig_box.visible = false
+
+	# déplacements : points de vue dans la cellule
+	nav_box = VBoxContainer.new()
+	nav_box.add_theme_constant_override("separation", 8)
+	nav_box.add_child(_label("Aller à", 20, Color(0.9, 0.9, 1.0)))
+	for e in [["Grille", "center"], ["Lit", "bed"], ["Table", "table"], ["Toilettes", "toilet"], ["Mur", "wall"], ["Fenêtre", "window"]]:
+		var nb: Button = _button(e[0], 22, Color(0.3, 0.45, 0.35))
+		nb.custom_minimum_size = Vector2(160, 52)
+		var st: String = e[1]
+		nb.pressed.connect(func() -> void: nav_pressed.emit(st))
+		nav_box.add_child(nb)
+	gameplay.add_child(nav_box)
 
 	# bas droite : cuillère
 	spoon_btn = _button("Sortir la cuillère", 26, Color(0.6, 0.6, 0.7))
