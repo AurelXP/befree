@@ -292,3 +292,23 @@ static func hole() -> ImageTexture:
 	var t: ImageTexture = _finish(img)
 	_cache["hole"] = t
 	return t
+
+
+static func grass() -> ImageTexture:
+	if _cache.has("grass"):
+		return _cache["grass"]
+	var size: int = 128
+	var a: Image = _noise_img(71, 0.05, size)
+	var b: Image = _noise_img(72, 0.2, size)
+	var img: Image = Image.create(size, size, false, Image.FORMAT_RGB8)
+	for y in size:
+		for x in size:
+			var v: float = a.get_pixel(x, y).r
+			var f: float = b.get_pixel(x, y).r
+			var c: Color = Color(0.16, 0.34, 0.1).lerp(Color(0.32, 0.5, 0.16), v) * (0.8 + 0.4 * f)
+			c = c * (0.92 + 0.16 * _h(x, y, 61))
+			c.a = 1.0
+			img.set_pixel(x, y, c)
+	var t: ImageTexture = _finish(img)
+	_cache["grass"] = t
+	return t
